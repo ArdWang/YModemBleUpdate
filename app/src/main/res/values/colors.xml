@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#3F51B5</color>
+
+    <color name="colorPrimaryDark">#303F9F</color>
+
+    <color name="colorAccent">#FF4081</color>
+    <!--头部的颜色-->
+    <color name="colorNav">#436EEE</color>
+
+    <color name="app_main_color">#436EEE</color>
+    <!--按钮的颜色-->
+    <color name="colorBtn">#6495ED</color>
+    <!--白色-->
+    <color name="colorWhite">#FFFFFF</color>
+
+    <color name="colorHead">#436EEE</color>
+
+    <color name="colorRed">#EE0000</color>
+
+    <color name="colorBlack">#4D4D4D</color>
+
+    <color name="colorBBK">#EAEAEA</color>
+
+    <color name="colorAOK">#EDEDED</color>
+
+    <color name="colorYAHEI">#111111</color>
+
+    <color name="colorLineHei">#999999</color>
+
+    <color name="colorBlue">#4169E1</color>
+
+    <color name="colorGreen">#00FF00</color>
+
+    <color name="colorYellow">#EEEE00</color>
+
+    <color name="colorbbbk">#EFEFEF</color>
+
+    <color name="colorpicker">#ABABAB</color>
+
+    <color name="actionbar_bg_color">#0c377b</color>
+    <color name="grey">#EFEFF4</color>
+    <color name="green">#701ABB00</color>
+
+    <!--颜色对照-->
+    <color name="bbutton_danger_pressed">#B0B0B0</color>
+    <color name="bbutton_danger_disabled">#8F8F8F</color>
+    <color name="bbutton_danger_disabled_edge">#949494</color>
+    <color name="bbutton_danger">#8B8B7A</color>
+    <color name="bbutton_danger_edge">#8B8B83</color>
+    <color name="bbutton_info_pressed">#878787</color>
+    <color name="bbutton_info_edge">#848484</color>
+    <color name="bbutton_info_disabled">#7F7F7F</color>
+    <color name="bbutton_info_disabled_edge">#778899</color>
+    <color name="bbutton_info">#707070</color>
+
+    <!--黑色-->
+    <color name="colorBlck">#222222</color>
+
+</resources>
