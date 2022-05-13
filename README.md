@@ -1,6 +1,11 @@
 # YModemBleUpdate
 YModemBleUpdate OTA Code
 
+
+update 2022/5/13
+
+更新YmodemDemo 兼容 androidX版本
+
 安卓蓝牙YModem固件升级
 
 原理
