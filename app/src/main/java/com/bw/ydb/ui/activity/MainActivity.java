@@ -9,6 +9,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.os.Environment;
 import android.os.Handler;
 
 import android.os.Bundle;
@@ -30,6 +31,7 @@ import com.bw.ydb.R;
 import com.bw.ydb.ui.adapter.LeDeviceListAdapter;
 import com.bw.ydb.widgets.CustomsDialog;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -177,7 +179,29 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         mRefresh.setColorSchemeResources(R.color.colorNav);
         //点击事件
         mDeviceList.setOnItemClickListener(onItemClickListener);
+
+        try {
+            if (isok()) {
+                String b = "/storage/emulated/0/TESTBLE";
+                File file = new File(b);
+                if (!file.exists()) {
+                    file.mkdirs();
+                    Log.i("Create_file", "文件夹不存在创建文件夹");
+                } else {
+                    Log.i("Create_file", "文件夹存在不需要创建");
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
     }
+
+    private boolean isok() {
+        String status = Environment.getExternalStorageState();
+        return status.equals(Environment.MEDIA_MOUNTED);
+    }
+
 
 
     /**

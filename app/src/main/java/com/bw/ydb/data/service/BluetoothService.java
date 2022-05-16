@@ -87,7 +87,7 @@ public class BluetoothService extends Service{
             return false;
         }
 
-        if (bluetoothDeviceAddress != null && address.equals(bluetoothDeviceAddress)
+        if (address.equals(bluetoothDeviceAddress)
                 && bluetoothGatt != null) {
             Log.d(TAG, "Trying to use an existing mBluetoothGatt for connection.");
             if (bluetoothGatt.connect()) {

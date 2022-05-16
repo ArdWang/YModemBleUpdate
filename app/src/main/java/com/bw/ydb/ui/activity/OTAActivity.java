@@ -155,32 +155,31 @@ public class OTAActivity extends AppCompatActivity implements View.OnClickListen
             final String action = intent.getAction();
             Bundle extras = intent.getExtras();
             // 如果已经连接
-            if (BroadCast.ACTION_GATT_CONNECTED.equals(action)) {
-                /**
-                 * 如果连接成功就要存储设备信息
-                 */
-                //saveDeviceInfo(mDeviceName, mDeviceAddress);
+            if (!BroadCast.ACTION_GATT_CONNECTED.equals(action)) {
+                if (!BroadCast.ACTION_GATT_DISCONNECTED.equals(action)) {
+                    if (BroadCast.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
+                        // 发现服务
+                        displayGattServices(bluetoothService.getSupportedGattServices());
+                    }
 
-            } else if (BroadCast.ACTION_GATT_DISCONNECTED.equals(action)) {
-                // 如果没有连接
+                    //ota的
+                    else if (BroadCast.ACTION_DATA_AVAILABLE.equals(action)) {
+                        if(extras.containsKey(BroadCast.ACTION_OTA_DATA)) {
+                            String otadata = intent.getStringExtra(BroadCast.ACTION_OTA_DATA);
+                            onDataReceivedFromBLE(strToByteArray(otadata));
+                        }else{
+                            sendData = false;
+                        }
+                    }
+                }  // 如果没有连接
                 /**
                  * 当蓝牙连接出现断开的时候那么需要把该界面finish()掉
                  * 我这里是清除了所有的界面 除了MainActivity
                  */
-            } else if (BroadCast.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
-                // 发现服务
-                displayGattServices(bluetoothService.getSupportedGattServices());
-            }
+            }  /**
+             * 如果连接成功就要存储设备信息
+             */ //saveDeviceInfo(mDeviceName, mDeviceAddress);
 
-            //ota的
-            else if (BroadCast.ACTION_DATA_AVAILABLE.equals(action)) {
-                if(extras.containsKey(BroadCast.ACTION_OTA_DATA)) {
-                    String otadata = intent.getStringExtra(BroadCast.ACTION_OTA_DATA);
-                    onDataReceivedFromBLE(strToByteArray(otadata));
-                }else{
-                    sendData = false;
-                }
-            }
         }
     };
 
@@ -228,8 +227,7 @@ public class OTAActivity extends AppCompatActivity implements View.OnClickListen
         if (str == null) {
             return null;
         }
-        byte[] byteArray = str.getBytes();
-        return byteArray;
+        return str.getBytes();
     }
 
     private void startTransmission(){
@@ -239,6 +237,7 @@ public class OTAActivity extends AppCompatActivity implements View.OnClickListen
                 .filePath(mCurrentFilePath)
                 .fileName(mCurrentFileName)
                 .checkMd5("")
+                .sendSize(1024)
                 .callback(new YModemListener() {
                     @Override
                     public void onDataReady(byte[] data) {
@@ -327,6 +326,7 @@ public class OTAActivity extends AppCompatActivity implements View.OnClickListen
                 mCurrentFilePath = selectedFilesPaths.get(0);
             }
         }
+        super.onActivityResult(requestCode, resultCode, data);
     }
 
     @Override
@@ -341,6 +341,4 @@ public class OTAActivity extends AppCompatActivity implements View.OnClickListen
             bluetoothService.disconnect();
         }
     }
-
-
 }

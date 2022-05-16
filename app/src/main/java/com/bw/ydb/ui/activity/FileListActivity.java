@@ -1,5 +1,6 @@
 package com.bw.ydb.ui.activity;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -24,6 +25,7 @@ import com.bw.ydb.ui.adapter.OTAFileListAdapter;
 import com.bw.ydb.utils.config.Constants;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Objects;
 
 public class FileListActivity extends FragmentActivity implements View.OnClickListener{
     private int mFilesCount;
@@ -59,6 +61,7 @@ public class FileListActivity extends FragmentActivity implements View.OnClickLi
         mNext.setOnClickListener(this);
     }
 
+    @SuppressLint("SetTextI18n")
     private void initData(){
         Bundle extras = getIntent().getExtras();
         if (extras != null) {
@@ -66,10 +69,10 @@ public class FileListActivity extends FragmentActivity implements View.OnClickLi
         }
 
         /*
-            文件夹可以以随意创建 不需要是 iBlueTool
+            文件夹可以以随意创建 TESTBLE
          */
         File filedir = new File(Environment.getExternalStorageDirectory()
-                + File.separator + "iBlueTool");
+                + File.separator + "TESTBLE");
         mFirmwareAdapter = new OTAFileListAdapter(this,
                 mArrayListFiles, mFilesCount);
         mFileListView.setAdapter(mFirmwareAdapter);
@@ -182,7 +185,7 @@ public class FileListActivity extends FragmentActivity implements View.OnClickLi
         if (dir.exists()) {
             String filePattern = "bin";
             File[] allFilesList = dir.listFiles();
-            for (int pos = 0; pos < allFilesList.length; pos++) {
+            for (int pos = 0; pos < Objects.requireNonNull(allFilesList).length; pos++) {
                 File analyseFile = allFilesList[pos];
                 if (analyseFile != null) {
                     if (analyseFile.isDirectory()) {
