@@ -202,7 +202,6 @@ public class FileListActivity extends FragmentActivity implements View.OnClickLi
                             mFirmwareAdapter.notifyDataSetChanged();
                         }
                     }
-
                 }
             }
         } else {

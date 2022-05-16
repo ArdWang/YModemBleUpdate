@@ -1,6 +1,10 @@
 # YModemBleUpdate
 YModemBleUpdate OTA Code
 
+update 2022/5/16
+
+增加测试文件的创建，把要升级的ota bin文件放入到TESTBLE文件中然后可以进行选择文件操作
+
 
 update 2022/5/13
 
