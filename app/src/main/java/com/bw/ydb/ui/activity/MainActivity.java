@@ -1,5 +1,6 @@
 package com.bw.ydb.ui.activity;
 
+import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
@@ -7,20 +8,30 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Handler;
-import android.support.v4.widget.SwipeRefreshLayout;
-import android.support.v7.app.AppCompatActivity;
+
 import android.os.Bundle;
+import android.os.Looper;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ListView;
-import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+
 import com.bw.ydb.R;
 import com.bw.ydb.ui.adapter.LeDeviceListAdapter;
 import com.bw.ydb.widgets.CustomsDialog;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * mac 代码 格式化 OPTION + CMD + L
@@ -38,6 +49,9 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
     private CustomsDialog mDialog;
     private Handler mHandler;
 
+    // 蓝牙权限列表的开启
+    private final List<String> permissionList = new ArrayList<>();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -45,6 +59,7 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
 
         initView();
 
+        openPermission();
         checkBluetooth();
     }
 
@@ -67,6 +82,36 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
             Toast.makeText(this, "设备不支持蓝牙", Toast.LENGTH_SHORT).show();
             //finish();
             return;
+        }
+    }
+
+
+    private void openPermission(){
+        if (ContextCompat.checkSelfPermission(this,
+                Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+            permissionList.add(Manifest.permission.READ_PHONE_STATE);
+        }
+
+        if (ContextCompat.checkSelfPermission(this,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            permissionList.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+                    != PackageManager.PERMISSION_GRANTED) {
+                permissionList.add(Manifest.permission.ACCESS_COARSE_LOCATION);
+            }
+        }
+
+        if (ContextCompat.checkSelfPermission(this,
+                Manifest.permission.BLUETOOTH) != PackageManager.PERMISSION_GRANTED) {
+            permissionList.add(Manifest.permission.BLUETOOTH);
+        }
+
+        if (!permissionList.isEmpty()) {
+            String[] permissions = permissionList.toArray(new String[0]);
+            ActivityCompat.requestPermissions(this, permissions, 1);
         }
     }
 
@@ -96,41 +141,36 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
      * 自动执行刷新
      */
     public void autoRefresh(){
-        new Handler().postDelayed(new Runnable() {
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override
             public void run() {
-                scanLeDevice(true);
+                scanLeDevice();
                 mRefresh.setRefreshing(false);
             }
         }, 1000);
         mRefresh.setRefreshing(true);  //直接调用是没有用的
     }
 
-    private void scanLeDevice(final boolean enable) {
-        if (enable) {
-            // Stops scanning after a pre-defined scan period.
-            mHandler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    mBluetoothAdapter.stopLeScan(mLeScanCallback);
-                    /**
-                     * 停止扫描后需要自动连接
-                     */
-                    Log.i("check times", "we end!");
-                }
-            }, SCAN_PERIOD);
-            Log.i("check times", "we starting!");
-            mBluetoothAdapter.startLeScan(mLeScanCallback);
+    private void scanLeDevice() {
+        // Stops scanning after a pre-defined scan period.
+        mHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                /**
+                 * 停止扫描后需要自动连接
+                 */
+                Log.i("check times", "we end!");
+            }
+        }, SCAN_PERIOD);
+        Log.i("check times", "we starting!");
+        mBluetoothAdapter.startLeScan(mLeScanCallback);
 
-        }else{
-            //停止扫描
-            mBluetoothAdapter.stopLeScan(mLeScanCallback);
-        }
     }
 
 
     private void initView() {
-        mHandler = new Handler();
+        mHandler = new Handler(Looper.getMainLooper());
         mDeviceList = findViewById(R.id.mDeviceList);
         mRefresh = findViewById(R.id.mRefresh);
         mRefresh.setOnRefreshListener(this);
@@ -138,6 +178,7 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         //点击事件
         mDeviceList.setOnItemClickListener(onItemClickListener);
     }
+
 
     /**
      * listview点击项目
@@ -198,7 +239,7 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
 
     @Override
     public void onRefresh() {
-        new Handler().postDelayed(new Runnable() {
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override
             public void run() {
                 // 为了确保设备上蓝牙能使用, 如果当前蓝牙设备没启用,弹出对话框向用户要求授予权限来启用
@@ -215,7 +256,7 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
 
                 //添加到蓝牙设备
                 mDeviceList.setAdapter(mLeDeviceListAdapter);
-                scanLeDevice(true);
+                scanLeDevice();
                 // 停止刷新
                 mRefresh.setRefreshing(false);
             }
@@ -242,6 +283,24 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
             return true;
         }
         return super.onKeyDown(keyCode, event);
+    }
+
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_ENABLE_BT) {
+            if (resultCode == RESULT_OK) {
+                Log.d("TAG", "打开蓝牙成功！");
+            }
+
+            if (resultCode == RESULT_CANCELED) {
+                Log.d("TAG", "放弃打开蓝牙！");
+            }
+
+        } else {
+            Log.d("TAG", "蓝牙异常！");
+        }
     }
 
 
