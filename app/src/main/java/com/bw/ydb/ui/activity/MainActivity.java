@@ -21,6 +21,7 @@ import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -30,10 +31,13 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.bw.ydb.R;
 import com.bw.ydb.ui.adapter.LeDeviceListAdapter;
 import com.bw.ydb.widgets.CustomsDialog;
+import com.tbruyelle.rxpermissions3.RxPermissions;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+
+
 
 /**
  * mac 代码 格式化 OPTION + CMD + L
@@ -61,8 +65,10 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
 
         initView();
 
-        openPermission();
+        //openPermission();
         checkBluetooth();
+
+        requestPermissions();
     }
 
     /**
@@ -115,6 +121,40 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
             String[] permissions = permissionList.toArray(new String[0]);
             ActivityCompat.requestPermissions(this, permissions, 1);
         }
+    }
+
+
+
+    private void requestPermissions(){
+        new RxPermissions(MainActivity.this)
+                .requestEach(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                        Manifest.permission.READ_CALENDAR,
+                        Manifest.permission.READ_CALL_LOG,
+                        Manifest.permission.READ_PHONE_STATE,
+                        Manifest.permission.READ_EXTERNAL_STORAGE,
+                        Manifest.permission.ACCESS_COARSE_LOCATION,
+                        Manifest.permission.BLUETOOTH
+                )
+                .subscribe(permission -> {
+                    if(permission.granted){
+                        Log.d("TAG",permission.name+" is granted.");
+                    }else if(permission.shouldShowRequestPermissionRationale){
+                        Log.d("TAG",permission.name+" is denied. More info should be provided");
+                    }else{
+                        Log.d("TAG",permission.name+" is denied");
+                    }
+                });
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+
+
+
     }
 
     /**
@@ -253,6 +293,7 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
                 @Override
                 public void run() {
                     //要指定这样子的设备才能添加进去
+                    Log.i("设备的名称是:",device.getAddress());
                     mLeDeviceListAdapter.addDevice(device);
                     mLeDeviceListAdapter.notifyDataSetChanged();
                 }
