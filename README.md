@@ -1,6 +1,25 @@
 # YModemBleUpdate
 YModemBleUpdate OTA Code
 
+update 2022/5/17
+
+1. 本次更新修复了安卓高版本蓝牙读取不出来的错误
+
+2. 需要注意的是蓝牙OTA UUID需要替换自己项目 uuid
+
+```aidl 
+
+GattAttributes.java 中 修改此类代码
+
+//通过OTA发送数据到设备 更新设备的功能
+    public static final String BW_PROJECT_OTA_DATA = "XXXXX-BB42-452D-B573-E0645F03C230";
+
+```
+3. 蓝牙所有数据传输采用Fastble框架进行操作
+4. 此demo有不完善的地方还期待着修复
+
+
+
 update 2022/5/16
 
 增加测试文件的创建，把要升级的ota bin文件放入到TESTBLE文件中然后可以进行选择文件操作

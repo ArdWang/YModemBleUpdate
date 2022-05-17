@@ -11,4 +11,6 @@ public class Constants {
     public static final String ARRAYLIST_SELECTED_FILE_PATHS = "ARRAYLIST_SELECTED_FILE_PATHS";
     public static final String ARRAYLIST_SELECTED_FILE_NAMES = "ARRAYLIST_SELECTED_FILE_NAMES";
 
+    public static final String BLE_MODEL = "BLE_MODEL";
+
 }

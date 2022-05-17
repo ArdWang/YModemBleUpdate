@@ -1,6 +1,6 @@
 package com.bw.ydb.ui.adapter;
 
-import android.bluetooth.BluetoothDevice;
+
 import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -11,9 +11,10 @@ import android.widget.TextView;
 import com.bw.ydb.R;
 import com.bw.ydb.model.BleModel;
 import java.util.ArrayList;
+import java.util.List;
 
 public class LeDeviceListAdapter extends BaseAdapter {
-    public static ArrayList<BleModel> mLeDevices;
+    public static List<BleModel> mLeDevices;
     private LayoutInflater mInflator;
     ViewHolder viewHolder;
     private int postion=-1;

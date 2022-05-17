@@ -31,6 +31,7 @@ import com.bw.ydb.event.BleEvent;
 import com.bw.ydb.model.BleModel;
 import com.bw.ydb.ui.adapter.LeDeviceListAdapter;
 import com.bw.ydb.utils.BleManage;
+import com.bw.ydb.utils.config.Constants;
 import com.bw.ydb.widgets.CustomsDialog;
 import com.clj.fastble.BleManager;
 
@@ -62,7 +63,7 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
     private CustomsDialog mDialog;
     private Handler mHandler;
 
-    private List<BleModel> dataList = new ArrayList<>();
+    protected List<BleModel> dataList = new ArrayList<>();
 
 
     @Override
@@ -127,7 +128,7 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         if(!dataList.contains(event.getModel())){
             if(event.getModel().getBleDevice().getName() != null){
                 dataList.add(event.getModel());
-                mLeDeviceListAdapter.addDevice(event.getModel());
+                LeDeviceListAdapter.mLeDevices = dataList;
                 mLeDeviceListAdapter.notifyDataSetChanged();
             }
         }
@@ -218,6 +219,10 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
             @Override
             public void run() {
 
+                if(dataList.size() > 0){
+                    dataList.clear();
+                }
+
                 //BleManage.getInstance().cancel();
                 BleManage.getInstance().scan();
 
@@ -287,15 +292,20 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         builder.setTips("蓝牙连接");
         builder.setContent("OTA升级");
 
-        builder.setNegativeButton(R.string.custom_dialog_left, new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialogInterface, int i) {
-                dialogInterface.dismiss();
-                Intent intent = new Intent(MainActivity.this,OTAActivity.class);
-                intent.putExtra(OTAActivity.EXTRAS_DEVICE_NAME,model.getName());
-                intent.putExtra(OTAActivity.EXTRAS_DEVICE_ADDRESS, model.getBleDevice().getDevice().getAddress());
-                startActivity(intent);
-            }
+        builder.setNegativeButton(R.string.custom_dialog_left, (dialogInterface, i) -> {
+            dialogInterface.dismiss();
+            // 取消扫描
+            BleManage.getInstance().cancel();
+            // 连接蓝牙
+            BleManage.getInstance().connect(model.getBleDevice());
+
+            Intent intent = new Intent(MainActivity.this,OTAActivity.class);
+            //intent.putExtra(OTAActivity.EXTRAS_DEVICE_NAME,model.getName());
+           // intent.putExtra(OTAActivity.EXTRAS_DEVICE_ADDRESS, model.getBleDevice().getDevice().getAddress());
+
+            intent.putExtra(Constants.BLE_MODEL,model);
+
+            startActivity(intent);
         }).setPositiveButton(R.string.custom_dialog_right, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
@@ -314,6 +324,10 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override
             public void run() {
+
+                if(dataList.size() > 0){
+                    dataList.clear();
+                }
 
                 BleManage.getInstance().cancel();
 

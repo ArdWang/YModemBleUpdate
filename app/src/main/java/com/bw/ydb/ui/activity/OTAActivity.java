@@ -1,37 +1,31 @@
 package com.bw.ydb.ui.activity;
 
 import android.app.Activity;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothGattCharacteristic;
-import android.bluetooth.BluetoothGattService;
-import android.content.BroadcastReceiver;
-import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
-import android.content.ServiceConnection;
 import android.os.Bundle;
-import android.os.IBinder;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-
 import com.bw.ydb.R;
-import com.bw.ydb.data.service.BluetoothService;
-import com.bw.ydb.utils.config.BroadCast;
+import com.bw.ydb.event.ConnectEvent;
+import com.bw.ydb.model.BleModel;
+import com.bw.ydb.utils.BleManage;
+import com.bw.ydb.utils.WriteStatus;
 import com.bw.ydb.utils.config.Constants;
-import com.bw.ydb.utils.config.GattAttributes;
 import com.bw.ydb.widgets.TextProgressBar;
 import com.bw.yml.YModem;
 import com.bw.yml.YModemListener;
+import com.clj.fastble.exception.BleException;
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Objects;
+
 
 public class OTAActivity extends AppCompatActivity implements View.OnClickListener{
     /**
@@ -43,14 +37,7 @@ public class OTAActivity extends AppCompatActivity implements View.OnClickListen
     public static final String EXTRAS_DEVICE_NAME = "DEVICE_NAME";
     public static final String EXTRAS_DEVICE_ADDRESS = "DEVICE_ADDRESS";
 
-    public BluetoothService bluetoothService;
-
     private Button mOTAUpdate;
-    //OTA
-    public static BluetoothGattCharacteristic mSendOTACharacteristic;
-
-    //获取得到的设备地址和设备名称
-    private String deviceAddre;
 
     private YModem yModem;
 
@@ -68,12 +55,15 @@ public class OTAActivity extends AppCompatActivity implements View.OnClickListen
 
     private static final String TAG = "OTAActivity";
 
+    private BleModel bleModel;
 
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_ota);
+
+        EventBus.getDefault().register(this);
 
         initView();
         initData();
@@ -82,7 +72,7 @@ public class OTAActivity extends AppCompatActivity implements View.OnClickListen
     @Override
     protected void onResume() {
         super.onResume();
-        registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
+
         if(mCurrentFileName!=null) {
             mUpgradeFilename.setText(mCurrentFileName);
         }else{
@@ -90,22 +80,7 @@ public class OTAActivity extends AppCompatActivity implements View.OnClickListen
         }
     }
 
-    /**
-     * 发送服务广播
-     * @return
-     */
-    private static IntentFilter makeGattUpdateIntentFilter() {
-        final IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(BroadCast.ACTION_GATT_CONNECTED);
-        intentFilter.addAction(BroadCast.ACTION_GATT_DISCONNECTED);
-        intentFilter.addAction(BroadCast.ACTION_GATT_SERVICES_DISCOVERED);
-        intentFilter.addAction(BroadCast.ACTION_DATA_AVAILABLE);
-        intentFilter.addAction(BroadCast.ACTION_OTA_DATA_AVAILABLE);
-        intentFilter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
-        intentFilter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
-        intentFilter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
-        return intentFilter;
-    }
+
 
 
     private void initView() {
@@ -119,101 +94,27 @@ public class OTAActivity extends AppCompatActivity implements View.OnClickListen
     }
 
     private void initData(){
-        deviceAddre = getIntent().getStringExtra(OTAActivity.EXTRAS_DEVICE_ADDRESS);
-        //创建service
-        Intent gattServiceIntent = new Intent(this, BluetoothService.class);
-        bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
+        // 获取传递归来的BleModel
+        bleModel = getIntent().getParcelableExtra(Constants.BLE_MODEL);
+
+        //deviceAddre = getIntent().getStringExtra(OTAActivity.EXTRAS_DEVICE_ADDRESS);
     }
 
-    /**
-     * 蓝牙连接
-     */
-    private final ServiceConnection mServiceConnection = new ServiceConnection() {
-        @Override
-        public void onServiceDisconnected(ComponentName componentName) {
-            //断开的时候作出来判断
-        }
-        @Override
-        public void onServiceConnected(ComponentName componentName,
-                                       IBinder service) {
-            bluetoothService = ((BluetoothService.LocalBinder) service)
-                    .getService();
-            if (!bluetoothService.initialize()) {
-                Log.e(TAG, "Unable to initialize Bluetooth");
-                finish();
-            }
 
-            if(deviceAddre!=null) {
-                bluetoothService.connect(deviceAddre, OTAActivity.this);
-            }
-        }
-    };
-
-    private final BroadcastReceiver mGattUpdateReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            final String action = intent.getAction();
-            Bundle extras = intent.getExtras();
-            // 如果已经连接
-            if (!BroadCast.ACTION_GATT_CONNECTED.equals(action)) {
-                if (!BroadCast.ACTION_GATT_DISCONNECTED.equals(action)) {
-                    if (BroadCast.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
-                        // 发现服务
-                        displayGattServices(bluetoothService.getSupportedGattServices());
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onBleEvent(ConnectEvent event){
+        if(event.getList().size() > 0){
+            for(BleModel model:event.getList()){
+                // 只能一致才能读取数据
+                if(Objects.equals(model.getBleDevice().getMac(), bleModel.getBleDevice().getMac())){
+                    // 必须要有返回数据才能进行操作
+                    if(model.getOtaByte() != null) {
+                        // 进行数据处理 ota接收数据
+                        yModem.onReceiveData(model.getOtaByte());
+                        sendData = true;
                     }
-
-                    //ota的
-                    else if (BroadCast.ACTION_DATA_AVAILABLE.equals(action)) {
-                        if(extras.containsKey(BroadCast.ACTION_OTA_DATA)) {
-                            String otadata = intent.getStringExtra(BroadCast.ACTION_OTA_DATA);
-                            onDataReceivedFromBLE(strToByteArray(otadata));
-                        }else{
-                            sendData = false;
-                        }
-                    }
-                }  // 如果没有连接
-                /**
-                 * 当蓝牙连接出现断开的时候那么需要把该界面finish()掉
-                 * 我这里是清除了所有的界面 除了MainActivity
-                 */
-            }  /**
-             * 如果连接成功就要存储设备信息
-             */ //saveDeviceInfo(mDeviceName, mDeviceAddress);
-
-        }
-    };
-
-    private void displayGattServices(List<BluetoothGattService> gattServices) {
-        if (gattServices == null) {
-            return;
-        }
-        for (BluetoothGattService gattService : gattServices) {
-            List<BluetoothGattCharacteristic> gattCharacteristicss = gattService.getCharacteristics();
-            for (BluetoothGattCharacteristic gattCharacteristic : gattCharacteristicss) {
-                String uuidchara = gattCharacteristic.getUuid().toString();
-                Log.i("===特征===",uuidchara);
-                //写入OTA的数据
-                if(uuidchara.equalsIgnoreCase(GattAttributes.BW_PROJECT_OTA_DATA)){
-                    mSendOTACharacteristic = gattCharacteristic;
-                    //温度的数据读取
-                    prepareBroadcastDataRead(gattCharacteristic);
-                    prepareBroadcastDataIndicate(gattCharacteristic);
                 }
             }
-        }
-    }
-
-    void prepareBroadcastDataRead(BluetoothGattCharacteristic gattCharacteristic) {
-        if ((gattCharacteristic.getProperties() | BluetoothGattCharacteristic.PROPERTY_READ) > 0) {
-            bluetoothService.readCharacteristic(gattCharacteristic);
-        }
-    }
-
-    void prepareBroadcastDataIndicate(
-            BluetoothGattCharacteristic gattCharacteristic) {
-        if ((gattCharacteristic.getProperties() | BluetoothGattCharacteristic.PROPERTY_INDICATE) > 0) {
-            bluetoothService.setCharacteristicIndication(gattCharacteristic,
-                    true);
         }
     }
 
@@ -242,9 +143,17 @@ public class OTAActivity extends AppCompatActivity implements View.OnClickListen
                     @Override
                     public void onDataReady(byte[] data) {
                         if(sendData) {
-                            if (bluetoothService.writeCharacteristic(mSendOTACharacteristic, data)) {
-                                Log.i("==Send Data is:", bytesToHexFun(data));
-                            }
+                            BleManage.getInstance().write(bleModel.getBleDevice(), bleModel.getService(), bleModel.getSendCharacter(), data, new WriteStatus() {
+                                @Override
+                                public void onSuccess(int current, int total, byte[] justWrite) {
+                                    Log.i("==Send Data is:", bytesToHexFun(justWrite));
+                                }
+
+                                @Override
+                                public void onFail(BleException exception) {
+                                    Log.e("==Send Data fail!",exception.toString());
+                                }
+                            });
                         }
                     }
 
@@ -259,7 +168,6 @@ public class OTAActivity extends AppCompatActivity implements View.OnClickListen
                         }else{
                             mUpgradeBar.setProgressText("100%");
                         }
-
                     }
 
                     @Override
@@ -279,7 +187,7 @@ public class OTAActivity extends AppCompatActivity implements View.OnClickListen
     public static String bytesToHexFun(byte[] bytes) {
         StringBuilder buf = new StringBuilder(bytes.length * 2);
         for(byte b : bytes) { // 使用String的format方法进行转换
-            buf.append(String.format("%02x", new Integer(b & 0xff)));
+            buf.append(String.format("%02x", b & 0xff));
         }
         return buf.toString();
     }
@@ -289,6 +197,12 @@ public class OTAActivity extends AppCompatActivity implements View.OnClickListen
     public void onClick(View view) {
         switch (view.getId()){
             case R.id.mOTAUpdate:
+
+                if(bleModel.getBleDevice() != null) {
+                    // 这一步进行读取服务
+                    BleManage.getInstance().readServer(bleModel.getBleDevice());
+                }
+
                 if(mCurrentFileName==null&&mCurrentFilePath==null){
                     mOTAUpdate.setText("点我升级");
                     Intent ApplicationAndStackCombined = new Intent(OTAActivity.this, FileListActivity.class);
@@ -298,10 +212,21 @@ public class OTAActivity extends AppCompatActivity implements View.OnClickListen
                 }else {
                     mOTAUpdate.setVisibility(View.GONE);
                     mOTAStop.setVisibility(View.VISIBLE);
-                    boolean isSuccess = bluetoothService.writeCharacteristic(OTAActivity.mSendOTACharacteristic,"0x05");
-                    if (isSuccess) {
-                        startTransmission();
-                    }
+
+                    // 开始协议每个项目都不一样 需要针对底层去协议去沟通，本次0x05只针对本项目
+
+                    BleManage.getInstance().write(bleModel.getBleDevice(), bleModel.getService(), bleModel.getSendCharacter(), "0x05".getBytes(), new WriteStatus() {
+                        @Override
+                        public void onSuccess(int current, int total, byte[] justWrite) {
+                            Log.i("==Send Data is:", bytesToHexFun(justWrite));
+                            startTransmission();
+                        }
+
+                        @Override
+                        public void onFail(BleException exception) {
+                            Log.e("==Send Data fail! ",exception.toString());
+                        }
+                    });
                 }
                 break;
 
@@ -332,13 +257,10 @@ public class OTAActivity extends AppCompatActivity implements View.OnClickListen
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        yModem.stop();
-        unregisterReceiver(mGattUpdateReceiver);
-        //断开服务连接
-        unbindService(mServiceConnection);
-        //断开蓝牙服务连接
-        if(bluetoothService!=null){
-            bluetoothService.disconnect();
+        if(yModem != null) {
+            yModem.stop();
         }
+        BleManage.getInstance().disAll();
+        EventBus.getDefault().unregister(this);
     }
 }

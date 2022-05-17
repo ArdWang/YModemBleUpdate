@@ -24,7 +24,6 @@ import org.greenrobot.eventbus.EventBus;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 
 public class BleManage {
 
@@ -39,6 +38,8 @@ public class BleManage {
 
 
     private final List<BleModel> successList = new ArrayList<>();
+
+    private WriteStatus writeStatus;
 
     // 定义
    public void init(){
@@ -183,11 +184,13 @@ public class BleManage {
                     if (successList.get(i).sendCharacter != null) {
                         if (Objects.equals(successList.get(i).getMac(), bleDevice.getMac())) {
                             // 进行ota的数据读取或者交换
-
+                            for(BleModel model:successList){
+                                model.setOtaByte(data);
+                            }
                         }
                     }
                 }
-
+                //返回数据
                 EventBus.getDefault().post(new ConnectEvent(successList));
 
             }catch (Exception e){
@@ -199,27 +202,33 @@ public class BleManage {
 
     // 读取服务
     public void readServer(BleDevice bleDevice){
-        BluetoothGatt gatt = BleManager.getInstance().getBluetoothGatt(bleDevice);
-        List<BluetoothGattService> serviceList = gatt.getServices();
-        for (BluetoothGattService service : serviceList) {
-            List<BluetoothGattCharacteristic> characteristicList= service.getCharacteristics();
-            for(BluetoothGattCharacteristic characteristic : characteristicList) {
-                if(characteristic.getUuid().toString().equals(GattAttributes.BW_PROJECT_OTA_DATA)){
-                   for(BleModel model: successList){
-                       if(Objects.equals(model.getBleDevice().getMac(), bleDevice.getMac())){
-                           model.setSendCharacter(characteristic.toString());
-                           model.setService(service.toString());
-                           // 发送通知
-                           notify(bleDevice, service.toString(), gatt.toString());
+       try {
+           BluetoothGatt gatt = BleManager.getInstance().getBluetoothGatt(bleDevice);
+           List<BluetoothGattService> serviceList = gatt.getServices();
+           for (BluetoothGattService service : serviceList) {
+               Log.i("services is : ", service.getUuid().toString());
+               List<BluetoothGattCharacteristic> characteristicList = service.getCharacteristics();
+               for (BluetoothGattCharacteristic characteristic : characteristicList) {
+                   if (characteristic.getUuid().toString().equals(GattAttributes.BW_PROJECT_OTA_DATA)) {
+                       Log.i("characteristic is : ", characteristic.getUuid().toString());
+                       for (BleModel model : successList) {
+                           if (Objects.equals(model.getBleDevice().getMac(), bleDevice.getMac())) {
+                               model.setSendCharacter(characteristic.toString());
+                               model.setService(service.toString());
+                               // 发送通知
+                               notify(bleDevice, service.getUuid().toString(), characteristic.getUuid().toString());
+                           }
                        }
                    }
-                }
-            }
-        }
+               }
+           }
+       }catch (Exception e){
+           e.printStackTrace();
+       }
     }
 
     // 写入蓝牙数据
-    public void write(BleDevice bleDevice, String service, String character, byte[] data){
+    public void write(BleDevice bleDevice, String service, String character, byte[] data, WriteStatus lister){
         BleManager.getInstance().write(
                 bleDevice,
                 service,
@@ -229,11 +238,13 @@ public class BleManage {
                     @Override
                     public void onWriteSuccess(int current, int total, byte[] justWrite) {
                         Log.i("Success", justWrite.toString());
+                        lister.onSuccess(current,total,justWrite);
                     }
 
                     @Override
                     public void onWriteFailure(BleException exception) {
                         Log.i("Error", exception.toString());
+                        lister.onFail(exception);
                     }
                 }
         );
