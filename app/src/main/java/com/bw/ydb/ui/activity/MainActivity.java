@@ -1,10 +1,6 @@
 package com.bw.ydb.ui.activity;
 
 import android.Manifest;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothManager;
-import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -31,14 +27,20 @@ import androidx.core.content.ContextCompat;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.bw.ydb.R;
+import com.bw.ydb.event.BleEvent;
+import com.bw.ydb.model.BleModel;
 import com.bw.ydb.ui.adapter.LeDeviceListAdapter;
+import com.bw.ydb.utils.BleManage;
 import com.bw.ydb.widgets.CustomsDialog;
+import com.clj.fastble.BleManager;
 
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-
 
 
 /**
@@ -50,7 +52,6 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
     private ListView mDeviceList;
     private SwipeRefreshLayout mRefresh;
     private LeDeviceListAdapter mLeDeviceListAdapter;
-    private BluetoothAdapter mBluetoothAdapter;
 
     private static final int MY_PERMISSION_REQUEST_CODE = 10000;
 
@@ -58,55 +59,33 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
     private static final int SCAN_PERIOD = 10000;
     private static final int REQUEST_ENABLE_BT = 1;
 
-    private static final int REQUEST_CODE_PERMISSION_LOCATION = 2;
-
-    private static final int REQUEST_CODE_STORE = 3;
-
-
     private CustomsDialog mDialog;
     private Handler mHandler;
 
-    // 蓝牙权限列表的开启
-    private final List<String> permissionList = new ArrayList<>();
+    private List<BleModel> dataList = new ArrayList<>();
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        EventBus.getDefault().register(this);
+
         initView();
 
-        //openPermission();
-        checkBluetooth();
+        BleManager.getInstance().init(getApplication());
+        //初始化
+        BleManage.getInstance().init();
+        BleManage.getInstance().rule();
 
         requestPermissions();
+
     }
 
-    /**
-     * 检查设备是否提供蓝牙
-     */
-    private void checkBluetooth() {
-        // 检查当前手机是否支持ble 蓝牙,如果不支持退出程序
-        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
-            Toast.makeText(this, "没有提供蓝牙", Toast.LENGTH_SHORT).show();
-            //finish();
-        }
-
-        // 初始化 Bluetooth adapter, 通过蓝牙管理器得到一个参考蓝牙适配器(API必须在以上android4.3或以上和版本)
-        final BluetoothManager bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-        mBluetoothAdapter = bluetoothManager.getAdapter();
-
-        // 检查设备上是否支持蓝牙
-        if (mBluetoothAdapter == null) {
-            Toast.makeText(this, "设备不支持蓝牙", Toast.LENGTH_SHORT).show();
-            //finish();
-            return;
-        }
-    }
 
 
     private void requestPermissions(){
-
         /**
          * 第 1 步: 检查是否有相应的权限
          */
@@ -142,6 +121,18 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         );
 
     }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onBleEvent(BleEvent event){
+        if(!dataList.contains(event.getModel())){
+            if(event.getModel().getBleDevice().getName() != null){
+                dataList.add(event.getModel());
+                mLeDeviceListAdapter.addDevice(event.getModel());
+                mLeDeviceListAdapter.notifyDataSetChanged();
+            }
+        }
+    }
+
 
     /**
      * 检查是否拥有指定的所有权限
@@ -215,20 +206,8 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
     @Override
     protected void onResume() {
         super.onResume();
-        // 为了确保设备上蓝牙能使用, 如果当前蓝牙设备没启用,弹出对话框向用户要求授予权限来启用
-        if (!mBluetoothAdapter.isEnabled()) {
-            if (!mBluetoothAdapter.isEnabled()) {
-                Intent enableBtIntent = new Intent(
-                        BluetoothAdapter.ACTION_REQUEST_ENABLE);
-                startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-            }
-        }
-        // Initializes list view adapter.
-        mLeDeviceListAdapter = new LeDeviceListAdapter(this);
-        //添加到蓝牙设备
-        mDeviceList.setAdapter(mLeDeviceListAdapter);
         //自动扫描
-       autoRefresh();
+        requestPermissions();
     }
 
     /**
@@ -238,29 +217,16 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override
             public void run() {
-                scanLeDevice();
+
+                //BleManage.getInstance().cancel();
+                BleManage.getInstance().scan();
+
                 mRefresh.setRefreshing(false);
             }
         }, 1000);
         mRefresh.setRefreshing(true);  //直接调用是没有用的
     }
 
-    private void scanLeDevice() {
-        // Stops scanning after a pre-defined scan period.
-        mHandler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                mBluetoothAdapter.stopLeScan(mLeScanCallback);
-                /**
-                 * 停止扫描后需要自动连接
-                 */
-                Log.i("check times", "we end!");
-            }
-        }, SCAN_PERIOD);
-        Log.i("check times", "we starting!");
-        mBluetoothAdapter.startLeScan(mLeScanCallback);
-
-    }
 
 
     private void initView() {
@@ -271,6 +237,11 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         mRefresh.setColorSchemeResources(R.color.colorNav);
         //点击事件
         mDeviceList.setOnItemClickListener(onItemClickListener);
+
+        // Initializes list view adapter.
+        mLeDeviceListAdapter = new LeDeviceListAdapter(this);
+        //添加到蓝牙设备
+        mDeviceList.setAdapter(mLeDeviceListAdapter);
 
         try {
             if (isok()) {
@@ -302,7 +273,7 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
     private AdapterView.OnItemClickListener onItemClickListener = new AdapterView.OnItemClickListener() {
         @Override
         public void onItemClick(AdapterView<?> adapterView, View view, int position, long l) {
-            BluetoothDevice device = mLeDeviceListAdapter
+            BleModel device = mLeDeviceListAdapter
                     .getDevice(position);
             if (device == null) {
                 return;
@@ -311,7 +282,7 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         }
     };
 
-    private void showDialog(final BluetoothDevice device){
+    private void showDialog(BleModel model){
         CustomsDialog.Builder builder = new CustomsDialog.Builder(MainActivity.this);
         builder.setTips("蓝牙连接");
         builder.setContent("OTA升级");
@@ -321,8 +292,8 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
             public void onClick(DialogInterface dialogInterface, int i) {
                 dialogInterface.dismiss();
                 Intent intent = new Intent(MainActivity.this,OTAActivity.class);
-                intent.putExtra(OTAActivity.EXTRAS_DEVICE_NAME,device.getName());
-                intent.putExtra(OTAActivity.EXTRAS_DEVICE_ADDRESS, device.getAddress());
+                intent.putExtra(OTAActivity.EXTRAS_DEVICE_NAME,model.getName());
+                intent.putExtra(OTAActivity.EXTRAS_DEVICE_ADDRESS, model.getBleDevice().getDevice().getAddress());
                 startActivity(intent);
             }
         }).setPositiveButton(R.string.custom_dialog_right, new DialogInterface.OnClickListener() {
@@ -337,43 +308,17 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
     }
 
 
-    // 找到设备回调  处理机制
-    private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
-        @Override
-        public void onLeScan(final BluetoothDevice device, final int rssi, byte[] scanRecord) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    //要指定这样子的设备才能添加进去
-                    Log.i("设备的名称是:",device.getAddress());
-                    mLeDeviceListAdapter.addDevice(device);
-                    mLeDeviceListAdapter.notifyDataSetChanged();
-                }
-            });
-        }
-    };
-
 
     @Override
     public void onRefresh() {
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override
             public void run() {
-                // 为了确保设备上蓝牙能使用, 如果当前蓝牙设备没启用,弹出对话框向用户要求授予权限来启用
-                if (!mBluetoothAdapter.isEnabled()) {
-                    if (!mBluetoothAdapter.isEnabled()) {
-                        Intent enableBtIntent = new Intent(
-                                BluetoothAdapter.ACTION_REQUEST_ENABLE);
-                        startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-                    }
-                }
-                //if(isSet){
-                // Initializes list view adapter.
-                mLeDeviceListAdapter = new LeDeviceListAdapter(MainActivity.this);
 
-                //添加到蓝牙设备
-                mDeviceList.setAdapter(mLeDeviceListAdapter);
-                scanLeDevice();
+                BleManage.getInstance().cancel();
+
+                BleManage.getInstance().scan();
+
                 // 停止刷新
                 mRefresh.setRefreshing(false);
             }
@@ -425,9 +370,19 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if(mLeScanCallback!=null){
-            mLeScanCallback = null;
-        }
+
+        BleManage.getInstance().cancel();
+        BleManage.getInstance().disAll();
+        BleManager.getInstance().destroy();
+        EventBus.getDefault().unregister(this);
+
     }
 
 }
+
+/*
+
+
+
+
+* */

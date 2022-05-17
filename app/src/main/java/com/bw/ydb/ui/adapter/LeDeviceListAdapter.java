@@ -9,11 +9,11 @@ import android.widget.BaseAdapter;
 import android.widget.TextView;
 
 import com.bw.ydb.R;
-
+import com.bw.ydb.model.BleModel;
 import java.util.ArrayList;
 
 public class LeDeviceListAdapter extends BaseAdapter {
-    public static ArrayList<BluetoothDevice> mLeDevices;
+    public static ArrayList<BleModel> mLeDevices;
     private LayoutInflater mInflator;
     ViewHolder viewHolder;
     private int postion=-1;
@@ -34,17 +34,17 @@ public class LeDeviceListAdapter extends BaseAdapter {
 
     /**
      * contains()是判断是否有相同的字符串
-     * @param device
+     * @param bleModel
      */
-    public void addDevice(BluetoothDevice device) {
-        if(!mLeDevices.contains(device)) {
-            if(device.getName()!=null){
-                mLeDevices.add(device);
+    public void addDevice(BleModel bleModel) {
+        if(!mLeDevices.contains(bleModel)) {
+            if(bleModel.getName()!=null){
+                mLeDevices.add(bleModel);
             }
         }
     }
 
-    public BluetoothDevice getDevice(int position) {
+    public BleModel getDevice(int position) {
         return mLeDevices.get(position);
     }
 
@@ -89,9 +89,12 @@ public class LeDeviceListAdapter extends BaseAdapter {
             viewHolder = (ViewHolder) view.getTag();
         }
 
-        BluetoothDevice device = mLeDevices.get(i);
-        final String deviceName = device.getName();
-        final String deviceAddre = device.getAddress();
+       // BluetoothDevice device = mLeDevices.get(i);
+
+        BleModel model = mLeDevices.get(i);
+
+        final String deviceName = model.getName();
+        final String deviceAddre = model.getBleDevice().getDevice().getAddress();
 
         if(i==postion){
             viewHolder.clickcontent.setText("Connected");
