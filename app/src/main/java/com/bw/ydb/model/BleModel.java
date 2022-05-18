@@ -4,11 +4,10 @@ package com.bw.ydb.model;
 
 import android.os.Parcel;
 import android.os.Parcelable;
-
 import com.clj.fastble.data.BleDevice;
 
-import java.io.Serializable;
 import java.util.Date;
+
 
 public class BleModel implements Parcelable {
 
