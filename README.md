@@ -1,6 +1,12 @@
 # YModemBleUpdate
 YModemBleUpdate OTA Code
 
+update 2022/11/7
+
+Flutter ymodem is provided Welcome to view,
+
+
+
 update 2022/5/17
 
 1. 本次更新修复了安卓高版本蓝牙读取不出来的错误
