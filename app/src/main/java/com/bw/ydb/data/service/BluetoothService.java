@@ -34,6 +34,11 @@ public class BluetoothService extends Service{
     private BluetoothGatt bluetoothGatt;
     private String bluetoothDeviceAddress;
     private Context mContext;
+    private byte[] pendingData;
+    private int pendingIndex;
+    private BluetoothGattCharacteristic pendingCharacteristic;
+    private boolean isWritingChunk = false;
+
 
 
 
@@ -182,7 +187,25 @@ public class BluetoothService extends Service{
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 Log.i(TAG,"write success data");
-            }else{
+                if (isWritingChunk && pendingData != null) {
+                    pendingIndex += 20;
+                    if (pendingIndex < pendingData.length) {
+                        byte[] chunk = new byte[Math.min(20, pendingData.length - pendingIndex)];
+                        System.arraycopy(pendingData, pendingIndex, chunk, 0, chunk.length);
+                        pendingCharacteristic.setValue(chunk);
+                        bluetoothGatt.writeCharacteristic(pendingCharacteristic);
+                    } else {
+                        isWritingChunk = false;
+                        pendingData = null;
+                        pendingIndex = 0;
+                        pendingCharacteristic = null;
+                    }
+                }
+            } else {
+                isWritingChunk = false;
+                pendingData = null;
+                pendingIndex = 0;
+                pendingCharacteristic = null;
                 Intent intent = new Intent(BroadCast.ACTION_GATT_CHARACTERISTIC_ERROR);
                 intent.putExtra(Constants.EXTRA_CHARACTERISTIC_ERROR_MESSAGE, "" + status);
                 mContext.sendBroadcast(intent);
@@ -303,10 +326,19 @@ public class BluetoothService extends Service{
             return false;
         }
         if (characteristic != null && (data.length > 0)) {
-            characteristic.setValue(data);
-            boolean status = bluetoothGatt.writeCharacteristic(characteristic);
-            return status;
-        }else{
+            if (data.length > 20) {
+                pendingCharacteristic = characteristic;
+                pendingData = data;
+                pendingIndex = 0;
+                isWritingChunk = true;
+                byte[] chunk = new byte[20];
+                System.arraycopy(data, 0, chunk, 0, 20);
+                characteristic.setValue(chunk);
+            } else {
+                characteristic.setValue(data);
+            }
+            return bluetoothGatt.writeCharacteristic(characteristic);
+        } else {
             return false;
         }
     }
